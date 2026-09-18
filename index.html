@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سجل المخزون</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f4ef;
+    --panel:#ffffff;
+    --ink:#1f2420;
+    --ink-soft:#5b6259;
+    --line:#dfdac9;
+    --accent:#8a6d3b;
+    --accent-deep:#5f4a24;
+    --ok:#3f6b4a;
+    --warn:#a34a2f;
+    --shelf:#efe8d6;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg:#181712;
+      --panel:#211f19;
+      --ink:#ece7da;
+      --ink-soft:#a39c88;
+      --line:#3a3628;
+      --accent:#c9a35f;
+      --accent-deep:#e2bd7c;
+      --ok:#7fb08c;
+      --warn:#d98a6a;
+      --shelf:#28241a;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#181712;
+    --panel:#211f19;
+    --ink:#ece7da;
+    --ink-soft:#a39c88;
+    --line:#3a3628;
+    --accent:#c9a35f;
+    --accent-deep:#e2bd7c;
+    --ok:#7fb08c;
+    --warn:#d98a6a;
+    --shelf:#28241a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+  header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2px solid var(--line);
+    padding-bottom:16px;margin-bottom:20px;flex-wrap:wrap;gap:12px;
+  }
+  header h1{
+    margin:0;font-size:1.7rem;font-weight:700;letter-spacing:.3px;
+  }
+  header p{margin:4px 0 0;color:var(--ink-soft);font-size:.9rem;}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;cursor:pointer;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);border-radius:8px;
+    padding:9px 14px;font-size:.88rem;transition:.15s;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent-deep);}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button.primary:hover{background:var(--accent-deep);border-color:var(--accent-deep);color:#fff;}
+  button.danger{color:var(--warn);}
+  button.danger:hover{border-color:var(--warn);}
+
+  .provinces{
+    display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;
+    border-bottom:1px solid var(--line);padding-bottom:12px;
+  }
+  .prov-tab{
+    position:relative;padding:8px 34px 8px 14px;border-radius:8px 8px 0 0;
+    background:var(--shelf);border:1px solid var(--line);border-bottom:none;
+    cursor:pointer;font-size:.9rem;color:var(--ink-soft);
+  }
+  .prov-tab.active{background:var(--panel);color:var(--ink);font-weight:700;border-bottom:2px solid var(--panel);margin-bottom:-1px;}
+  .prov-tab .rm{
+    position:absolute;left:8px;top:50%;transform:translateY(-50%);
+    color:var(--ink-soft);font-size:.75rem;
+  }
+  .prov-tab .rm:hover{color:var(--warn);}
+  .add-prov{padding:8px 14px;border:1px dashed var(--line);border-radius:8px;color:var(--ink-soft);background:transparent;}
+
+  .branches{
+    display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;align-items:center;
+  }
+  .branch-chip{
+    position:relative;padding:6px 28px 6px 12px;border-radius:20px;
+    background:var(--shelf);border:1px solid var(--line);
+    cursor:pointer;font-size:.82rem;color:var(--ink-soft);
+  }
+  .branch-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .branch-chip .rm{
+    position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:.7rem;
+  }
+  .add-branch{padding:6px 12px;border:1px dashed var(--line);border-radius:20px;color:var(--ink-soft);background:transparent;font-size:.82rem;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .panel-head h2{margin:0;font-size:1.15rem;}
+  .panel-head .sub{color:var(--ink-soft);font-size:.85rem;font-weight:400;}
+  .search{
+    flex:1;min-width:180px;max-width:280px;
+    padding:8px 12px;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);color:var(--ink);font-size:.85rem;
+  }
+
+  .cat-group{margin-bottom:20px;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .cat-head{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--shelf);padding:9px 14px;font-weight:700;font-size:.9rem;
+  }
+  .cat-head .count{font-weight:400;color:var(--ink-soft);font-size:.8rem;}
+
+  table{width:100%;border-collapse:collapse;font-size:.87rem;}
+  thead th{
+    text-align:right;padding:10px 8px;border-bottom:2px solid var(--line);
+    color:var(--ink-soft);font-weight:600;white-space:nowrap;
+  }
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--shelf);}
+  td.qty{font-weight:700;color:var(--accent-deep);}
+  .empty-row{text-align:center;color:var(--ink-soft);padding:30px;}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{padding:5px 9px;font-size:.78rem;}
+
+  .add-form{
+    display:grid;grid-template-columns:repeat(5,1fr) auto;gap:8px;margin-bottom:16px;
+  }
+  .add-form input{
+    padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);color:var(--ink);font-size:.85rem;width:100%;
+  }
+  .add-form button{white-space:nowrap;}
+
+  @media (max-width:900px){
+    .add-form{grid-template-columns:1fr 1fr;}
+    table{display:block;overflow-x:auto;}
+  }
+  .hint{font-size:.78rem;color:var(--ink-soft);margin-top:10px;line-height:1.6;}
+  .badge{
+    display:inline-block;padding:2px 8px;border-radius:20px;font-size:.75rem;
+    background:var(--shelf);color:var(--ink-soft);border:1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>سجل المخزون</h1>
+      <p>المواد، الكميات، الأرقام التسلسلية، ومواقعها — بحسب المحافظة، الفرع، والقسم</p>
+    </div>
+    <div class="tools">
+      <button id="importBtn">استيراد من إكسل</button>
+      <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none">
+      <button id="exportAllBtn">تصدير الكل إلى إكسل</button>
+      <button id="exportCurBtn" class="primary">تصدير هذا الفرع</button>
+    </div>
+  </header>
+
+  <div class="provinces" id="provinceTabs"></div>
+  <div class="branches" id="branchTabs"></div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2 id="panelTitle"></h2>
+      <input type="text" class="search" id="searchBox" placeholder="بحث بالاسم أو الرقم التسلسلي أو الموقع...">
+    </div>
+
+    <div class="add-form">
+      <input type="text" id="f_name" placeholder="اسم المادة (مثال: كاميرا مراقبة)">
+      <input type="text" id="f_type" placeholder="القسم / النوعية (مثال: كاميرات)">
+      <input type="number" id="f_qty" placeholder="الكمية" min="0">
+      <input type="text" id="f_serial" placeholder="الأرقام التسلسلية (افصل بفاصلة إن كانت أكثر من رقم)">
+      <input type="text" id="f_loc" placeholder="المكان / العنوان">
+      <button class="primary" id="addBtn">إضافة</button>
+    </div>
+
+    <div id="groupsContainer"></div>
+    <p class="hint">
+      يتم حفظ البيانات تلقائياً في هذا المتصفح ولا تُحذف مع الوقت. لأخذ نسخة احتياطية دائمة، استخدم زر التصدير إلى إكسل بين فترة وأخرى.<br>
+      كل محافظة يمكن أن تحتوي على عدة فروع (مثال: فرع السكائر والغذائية)، وداخل كل فرع تُقسّم المواد تلقائياً حسب "القسم / النوعية" التي تكتبها (كاميرات، طابعات، أجهزة...).<br>
+      عند الاستيراد: اسم الشيت بصيغة "المحافظة - الفرع" (أو اسم المحافظة فقط)، والأعمدة بالترتيب: اسم المادة، القسم، الكمية، الأرقام التسلسلية، المكان/العنوان.<br>
+      لديك 10 كاميرات نفس الموديل بسيريلات مختلفة؟ اكتب اسم المادة والقسم مرة واحدة، والصق كل الأرقام التسلسلية في خانة "الأرقام التسلسلية" مفصولة بفاصلة — والكمية تُحسب تلقائياً من عدد الأرقام التي تدخلها (أو اتركها كما تكتبها يدوياً إن أردت رقماً مختلفاً).
+    </p>
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'inventory_app_v3';
+let state = null;
+let currentProvince = null;
+let currentBranch = null;
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function defaultBranch(){
+  return { id: uid(), name: 'الفرع الرئيسي', items: [] };
+}
+
+function parseSerials(text){
+  return String(text||'').split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean);
+}
+
+function itemsToV3(items){
+  return (items||[]).map(it=>{
+    if(it.serials) return it; // already v3
+    return {
+      id: it.id, name: it.name, type: it.type,
+      qty: it.qty, loc: it.loc,
+      serials: it.serial ? [it.serial] : []
+    };
+  });
+}
+
+function migrateOld(){
+  // ترقية من الإصدارات القديمة إن وُجدت
+  try{
+    const v2Raw = localStorage.getItem('inventory_app_v2');
+    if(v2Raw){
+      const old = JSON.parse(v2Raw);
+      if(old.provinces){
+        return {
+          provinces: old.provinces.map(p => ({
+            id: p.id, name: p.name,
+            branches: (p.branches||[]).map(b => ({ id: b.id, name: b.name, items: itemsToV3(b.items) }))
+          }))
+        };
+      }
+    }
+    const v1Raw = localStorage.getItem('inventory_app_v1');
+    if(v1Raw){
+      const old = JSON.parse(v1Raw);
+      if(old.provinces){
+        return {
+          provinces: old.provinces.map(p => ({
+            id: p.id, name: p.name,
+            branches: [{ id: uid(), name: 'الفرع الرئيسي', items: itemsToV3(p.items) }]
+          }))
+        };
+      }
+    }
+  }catch(e){}
+  return null;
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  const migrated = migrateOld();
+  if(migrated) return migrated;
+  return {
+    provinces: [
+      { id: 'basra', name: 'البصرة', branches: [ defaultBranch() ] },
+      { id: 'baghdad', name: 'بغداد', branches: [ defaultBranch() ] }
+    ]
+  };
+}
+
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){
+    alert('تعذر حفظ البيانات في هذا المتصفح.');
+  }
+}
+
+function getProvince(id){ return state.provinces.find(p=>p.id===id); }
+function getBranch(prov, id){ return prov ? prov.branches.find(b=>b.id===id) : null; }
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function renderProvinceTabs(){
+  const box = document.getElementById('provinceTabs');
+  box.innerHTML = '';
+  state.provinces.forEach(p=>{
+    const tab = document.createElement('div');
+    tab.className = 'prov-tab' + (p.id===currentProvince ? ' active' : '');
+    tab.innerHTML = `${escapeHtml(p.name)} <span class="rm" title="حذف المحافظة" data-id="${p.id}">✕</span>`;
+    tab.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('rm')) return;
+      currentProvince = p.id;
+      const prov = getProvince(currentProvince);
+      currentBranch = prov.branches.length ? prov.branches[0].id : null;
+      render();
+    });
+    tab.querySelector('.rm').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(confirm(`حذف محافظة "${p.name}" وكل فروعها ومواردها؟`)){
+        state.provinces = state.provinces.filter(x=>x.id!==p.id);
+        if(currentProvince===p.id){
+          currentProvince = state.provinces.length ? state.provinces[0].id : null;
+          currentBranch = currentProvince ? (getProvince(currentProvince).branches[0]?.id || null) : null;
+        }
+        saveState();
+        render();
+      }
+    });
+    box.appendChild(tab);
+  });
+  const addTab = document.createElement('div');
+  addTab.className = 'add-prov';
+  addTab.textContent = '+ إضافة محافظة';
+  addTab.addEventListener('click', ()=>{
+    const name = prompt('اسم المحافظة الجديدة:');
+    if(name && name.trim()){
+      const id = uid();
+      const b = defaultBranch();
+      state.provinces.push({ id, name: name.trim(), branches: [ b ] });
+      currentProvince = id;
+      currentBranch = b.id;
+      saveState();
+      render();
+    }
+  });
+  box.appendChild(addTab);
+}
+
+function renderBranchTabs(){
+  const box = document.getElementById('branchTabs');
+  box.innerHTML = '';
+  const prov = getProvince(currentProvince);
+  if(!prov){ return; }
+  prov.branches.forEach(b=>{
+    const chip = document.createElement('div');
+    chip.className = 'branch-chip' + (b.id===currentBranch ? ' active' : '');
+    chip.innerHTML = `${escapeHtml(b.name)} <span class="rm" title="حذف الفرع" data-id="${b.id}">✕</span>`;
+    chip.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('rm')) return;
+      currentBranch = b.id;
+      renderBranchTabs();
+      renderItems();
+    });
+    chip.querySelector('.rm').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(prov.branches.length===1){ alert('لا يمكن حذف آخر فرع في المحافظة.'); return; }
+      if(confirm(`حذف فرع "${b.name}" وكل مواده؟`)){
+        prov.branches = prov.branches.filter(x=>x.id!==b.id);
+        if(currentBranch===b.id){ currentBranch = prov.branches[0].id; }
+        saveState();
+        render();
+      }
+    });
+    box.appendChild(chip);
+  });
+  const addChip = document.createElement('div');
+  addChip.className = 'add-branch';
+  addChip.textContent = '+ إضافة فرع';
+  addChip.addEventListener('click', ()=>{
+    const name = prompt('اسم الفرع الجديد (مثال: فرع السكائر والغذائية):');
+    if(name && name.trim()){
+      const b = { id: uid(), name: name.trim(), items: [] };
+      prov.branches.push(b);
+      currentBranch = b.id;
+      saveState();
+      render();
+    }
+  });
+  box.appendChild(addChip);
+}
+
+function renderItems(){
+  const prov = getProvince(currentProvince);
+  const branch = getBranch(prov, currentBranch);
+  document.getElementById('panelTitle').innerHTML = prov && branch
+    ? `${escapeHtml(prov.name)} <span class="sub">/ ${escapeHtml(branch.name)}</span>`
+    : '—';
+
+  const container = document.getElementById('groupsContainer');
+  container.innerHTML = '';
+  if(!branch){
+    container.innerHTML = `<div class="empty-row">أضف محافظة وفرعاً للبدء.</div>`;
+    return;
+  }
+
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const items = branch.items.filter(it=>{
+    if(!q) return true;
+    return [it.name, it.type, (it.serials||[]).join(' '), it.loc].join(' ').toLowerCase().includes(q);
+  });
+
+  if(items.length===0){
+    container.innerHTML = `<div class="empty-row">لا توجد مواد مسجلة بعد في ${escapeHtml(branch.name)}. أضف أول مادة من الأعلى.</div>`;
+    return;
+  }
+
+  // تجميع حسب القسم / النوعية
+  const groups = {};
+  items.forEach(it=>{
+    const key = (it.type && it.type.trim()) ? it.type.trim() : 'غير مصنف';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(it);
+  });
+
+  Object.keys(groups).sort((a,b)=>a.localeCompare('ar')).forEach(cat=>{
+    const group = document.createElement('div');
+    group.className = 'cat-group';
+    const rowsHtml = groups[cat].map(it => `
+      <tr>
+        <td>${escapeHtml(it.name)}</td>
+        <td class="qty">${escapeHtml(String(it.qty))}</td>
+        <td style="max-width:280px;white-space:normal;">${(it.serials&&it.serials.length) ? escapeHtml(it.serials.join('، ')) : '—'}</td>
+        <td>${escapeHtml(it.loc||'—')}</td>
+        <td class="row-actions">
+          <button data-act="edit" data-id="${it.id}">تعديل</button>
+          <button data-act="del" data-id="${it.id}" class="danger">حذف</button>
+        </td>
+      </tr>
+    `).join('');
+    group.innerHTML = `
+      <div class="cat-head">
+        <span>${escapeHtml(cat)}</span>
+        <span class="count">${groups[cat].length} مادة</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>اسم المادة</th><th>الكمية</th><th>الأرقام التسلسلية</th><th>المكان / العنوان</th><th></th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `;
+    container.appendChild(group);
+  });
+
+  container.querySelectorAll('button[data-act="del"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('حذف هذه المادة؟')){
+        branch.items = branch.items.filter(x=>x.id!==btn.dataset.id);
+        saveState();
+        renderItems();
+      }
+    });
+  });
+  container.querySelectorAll('button[data-act="edit"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const it = branch.items.find(x=>x.id===btn.dataset.id);
+      if(!it) return;
+      const name = prompt('اسم المادة:', it.name); if(name===null) return;
+      const type = prompt('القسم / النوعية:', it.type); if(type===null) return;
+      const qty = prompt('الكمية:', it.qty); if(qty===null) return;
+      const serialsText = prompt('الأرقام التسلسلية (افصل بفاصلة):', (it.serials||[]).join('، ')); if(serialsText===null) return;
+      const loc = prompt('المكان / العنوان:', it.loc); if(loc===null) return;
+      it.name = name.trim(); it.type = type.trim(); it.qty = Number(qty)||0;
+      it.serials = parseSerials(serialsText); it.loc = loc.trim();
+      saveState();
+      renderItems();
+    });
+  });
+}
+
+function render(){
+  renderProvinceTabs();
+  renderBranchTabs();
+  renderItems();
+}
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const prov = getProvince(currentProvince);
+  const branch = getBranch(prov, currentBranch);
+  if(!branch){ alert('اختر أو أضف محافظة وفرعاً أولاً.'); return; }
+  const name = document.getElementById('f_name').value.trim();
+  const type = document.getElementById('f_type').value.trim();
+  const qtyRaw = document.getElementById('f_qty').value.trim();
+  const serials = parseSerials(document.getElementById('f_serial').value);
+  const loc = document.getElementById('f_loc').value.trim();
+  if(!name){ alert('الرجاء إدخال اسم المادة.'); return; }
+  const qty = qtyRaw ? (Number(qtyRaw)||0) : serials.length;
+  branch.items.push({ id: uid(), name, type, qty, serials, loc });
+  saveState();
+  ['f_name','f_type','f_qty','f_serial','f_loc'].forEach(id=>document.getElementById(id).value='');
+  renderItems();
+});
+
+document.getElementById('searchBox').addEventListener('input', renderItems);
+
+function sheetNameFor(provName, branchName, singleBranch){
+  const label = singleBranch ? provName : `${provName} - ${branchName}`;
+  return label.slice(0,31);
+}
+
+function buildSheet(branch){
+  const rows = [['اسم المادة','القسم','الكمية','الأرقام التسلسلية','المكان / العنوان']];
+  branch.items.forEach(it=>{
+    rows.push([it.name, it.type, it.qty, (it.serials||[]).join('، '), it.loc]);
+  });
+  return XLSX.utils.aoa_to_sheet(rows);
+}
+
+document.getElementById('exportCurBtn').addEventListener('click', ()=>{
+  const prov = getProvince(currentProvince);
+  const branch = getBranch(prov, currentBranch);
+  if(!branch){ alert('لا يوجد فرع محدد.'); return; }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, buildSheet(branch), sheetNameFor(prov.name, branch.name, prov.branches.length===1));
+  XLSX.writeFile(wb, `مخزون-${prov.name}-${branch.name}.xlsx`);
+});
+
+document.getElementById('exportAllBtn').addEventListener('click', ()=>{
+  if(state.provinces.length===0){ alert('لا توجد بيانات بعد.'); return; }
+  const wb = XLSX.utils.book_new();
+  state.provinces.forEach(prov=>{
+    prov.branches.forEach(branch=>{
+      XLSX.utils.book_append_sheet(wb, buildSheet(branch), sheetNameFor(prov.name, branch.name, prov.branches.length===1));
+    });
+  });
+  XLSX.writeFile(wb, `مخزون-جميع-المحافظات.xlsx`);
+});
+
+// ---- استيراد من إكسل ----
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      let addedItems = 0, addedProvinces = 0, addedBranches = 0;
+
+      wb.SheetNames.forEach(sheetName=>{
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if(!rows.length) return;
+
+        const header = rows[0].map(c=>String(c).trim());
+        const looksLikeHeader = header.some(h => ['اسم','قسم','نوع','كمي','تسلسل','مكان','عنوان'].some(k=>h.includes(k)));
+        const dataRows = looksLikeHeader ? rows.slice(1) : rows;
+        if(dataRows.every(r => r.every(c => String(c).trim()===''))) return;
+
+        // اسم الشيت: "المحافظة - الفرع" أو اسم المحافظة فقط
+        let provName = sheetName.trim(), branchName = 'الفرع الرئيسي';
+        if(sheetName.includes(' - ')){
+          const parts = sheetName.split(' - ');
+          provName = parts[0].trim();
+          branchName = parts.slice(1).join(' - ').trim() || 'الفرع الرئيسي';
+        }
+
+        let prov = state.provinces.find(p => p.name.trim() === provName);
+        if(!prov){
+          prov = { id: uid(), name: provName, branches: [] };
+          state.provinces.push(prov);
+          addedProvinces++;
+        }
+        let branch = prov.branches.find(b => b.name.trim() === branchName);
+        if(!branch){
+          branch = { id: uid(), name: branchName, items: [] };
+          prov.branches.push(branch);
+          addedBranches++;
+        }
+
+        dataRows.forEach(r=>{
+          const [name, type, qty, serialCell, loc] = r;
+          if(!name || String(name).trim()==='') return;
+          const serials = parseSerials(serialCell);
+          branch.items.push({
+            id: uid(),
+            name: String(name).trim(),
+            type: String(type||'').trim(),
+            qty: (qty!==undefined && String(qty).trim()!=='') ? (Number(qty)||0) : serials.length,
+            serials,
+            loc: String(loc||'').trim()
+          });
+          addedItems++;
+        });
+      });
+
+      if(addedItems===0){
+        alert('لم يتم العثور على بيانات صالحة في الملف. تأكد أن الأعمدة بالترتيب: اسم المادة، القسم، الكمية، الأرقام التسلسلية، المكان/العنوان.');
+      }else{
+        if(!currentProvince && state.provinces.length){
+          currentProvince = state.provinces[0].id;
+          currentBranch = state.provinces[0].branches[0]?.id || null;
+        }
+        saveState();
+        render();
+        alert(`تم الاستيراد بنجاح: ${addedItems} مادة${addedBranches ? ` ضمن ${addedBranches} فرع جديد` : ''}${addedProvinces ? ` و ${addedProvinces} محافظة جديدة` : ''}.`);
+      }
+    }catch(err){
+      alert('تعذر قراءة الملف. تأكد أنه ملف إكسل صالح (xlsx).');
+    }
+    e.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// init
+state = loadState();
+if(state.provinces.length){
+  if(!currentProvince) currentProvince = state.provinces[0].id;
+  const prov = getProvince(currentProvince);
+  if(prov && prov.branches.length && !currentBranch) currentBranch = prov.branches[0].id;
+}
+render();
+</script>
+</body>
+</html>
